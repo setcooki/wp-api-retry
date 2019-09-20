@@ -115,6 +115,14 @@ class Plugin
      */
     public static function uninstall()
     {
+        global $wpdb;
+
+        if(!defined('WP_UNINSTALL_PLUGIN'))
+        {
+            exit();
+        }
+        $wpdb->query( "DROP TABLE IF EXISTS ".API_RETRY_TABLE_NAME."");
+        delete_option("api_retry_db_version");
     }
 
 
