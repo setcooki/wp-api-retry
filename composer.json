@@ -1,0 +1,28 @@
+{
+  "name": "setcooki/wp-api-retry",
+  "description": "Wordpress Plugin for queueing and retrying failed external api calls",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Frank Mueller",
+      "email": "set@cooki.me",
+      "homepage": "http://set.cooki.me",
+      "role": "Developer"
+    }
+  ],
+  "support": {
+      "issues": "https://github.com/setcooki/wp-api-retry/issues"
+  },
+  "type": "wordpress-plugin",
+  "config": {
+    "vendor-dir": "lib/vendor"
+  },
+  "require": {
+    "php": ">=7.1.2"
+  },
+  "autoload":{
+    "psr-4": {
+      "Setcooki\\Wp\\Api\\Retry\\": "src"
+    }
+  }
+}
