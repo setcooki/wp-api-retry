@@ -88,13 +88,15 @@ class Plugin
           method VARCHAR(25) COLLATE {$collation} NOT NULL,
           url TEXT COLLATE {$collation} NOT NULL,
           request TEXT COLLATE {$collation} NOT NULL,
-          hash CHAR(32) {$collation} NOT NULL,
+          hash CHAR(32) COLLATE {$collation} NOT NULL,
           status TINYINT(1) NOT NULL DEFAULT '0',
           tries TINYINT(3) UNSIGNED NOT NULL DEFAULT '0',
           message TEXT COLLATE {$collation} NOT NULL,
           timestamp datetime NOT NULL,
           created datetime NOT NULL,
           PRIMARY KEY  (id)
+          KEY provider (provider)
+          KEY hash  (hash),
         ) ENGINE=MyISAM {$charset_collate};
         ";
 
