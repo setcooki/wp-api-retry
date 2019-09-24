@@ -12,7 +12,7 @@ if(!defined('API_RETRY_MAX_TRIES'))
 }
 if(!defined('API_RETRY_EMAIL_RECIPIENTS'))
 {
-    define('API_RETRY_EMAIL_RECIPIENTS', 'set@cooki.me');
+    define('API_RETRY_EMAIL_RECIPIENTS', '');
 }
 if(!defined('API_RETRY_PURGE_INTERVAL'))
 {
