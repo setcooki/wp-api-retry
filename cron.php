@@ -11,7 +11,7 @@ if(strtolower(trim(php_sapi_name())) !== 'cli')
 
 set_time_limit(0);
 ini_set('max_execution_time', 0);
-ini_set('memory_limit', '2048M');
+ini_set('memory_limit', '1024M');
 if(preg_match('=\-\-debug=i', implode(' ', $argv)))
 {
     error_reporting(E_ALL | E_STRICT);
@@ -49,10 +49,43 @@ if(!defined('WPINC'))
 require_once ABSPATH . WPINC . DIRECTORY_SEPARATOR . 'l10n.php';
 require_once ABSPATH . WPINC . DIRECTORY_SEPARATOR . 'plugin.php';
 require_once ABSPATH . WPINC . DIRECTORY_SEPARATOR . 'functions.php';
-
 require_once dirname(__FILE__) . '/lib/vendor/autoload.php';
 require_once dirname(__FILE__) . '/inc/globals.php';
 require_once dirname(__FILE__) . '/inc/functions.php';
 
+
+$args = [];
+if($argv)
+{
+    foreach((array)$argv as $arg)
+    {
+        $arg = trim($arg);
+        if(substr($arg, 0, 2) === '--')
+        {
+            if(stripos($arg, '=') !== false){
+                $arg = explode('=', $arg);
+                $args[substr($arg[0], 2)] = $arg[1];
+            }else{
+                $args[substr($arg, 2)] = null;
+            }
+        }
+    }
+}
+
 $plugin = \Setcooki\Wp\Api\Retry\Plugin::getInstance();
-$plugin->cron();
+$provider = (array_key_exists('provider', $args)) ? trim($args['provider']) : null;
+
+try
+{
+    $plugin->cron($provider)->purge($provider);
+}
+catch(\Setcooki\Wp\Api\Retry\Exception $e)
+{
+    $plugin->purge($provider);
+    echo $e->getMessage();
+    exit(0);
+}
+catch(\Exception $e)
+{
+    $plugin->purge($provider);
+}

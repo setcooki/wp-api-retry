@@ -5,7 +5,8 @@ namespace Setcooki\Wp\Api\Retry;
 use Setcooki\Wp\Api\Retry\Traits\Singleton;
 
 /**
- *
+ * Class Plugin
+ * @package Setcooki\Wp\Api\Retry
  */
 class Plugin
 {
@@ -49,7 +50,8 @@ class Plugin
         {
             $this->activate();
         }
-        add_action('api_retry_push', ['\Setcooki\Wp\Api\Retry\Retry', 'push'], 10, 4);
+        add_action('api_retry_failure', ['\Setcooki\Wp\Api\Retry\Retry', 'failure'], 10, 6);
+        add_action('api_retry_success', ['\Setcooki\Wp\Api\Retry\Retry', 'success'], 10, 6);
     }
 
 
@@ -87,9 +89,11 @@ class Plugin
           url TEXT COLLATE {$collation} NOT NULL,
           request TEXT COLLATE {$collation} NOT NULL,
           hash CHAR(32) {$collation} NOT NULL,
-          status TINYINT(1) UNSIGNED NOT NULL DEFAULT '0',
+          status TINYINT(1) NOT NULL DEFAULT '0',
           tries TINYINT(3) UNSIGNED NOT NULL DEFAULT '0',
+          message TEXT COLLATE {$collation} NOT NULL,
           timestamp datetime NOT NULL,
+          created datetime NOT NULL,
           PRIMARY KEY  (id)
         ) ENGINE=MyISAM {$charset_collate};
         ";
@@ -99,6 +103,7 @@ class Plugin
         do_action('api_retry_activate', $this);
 
         update_option('api_retry_db_version', API_RETRY_DB_VERSION);
+        update_option('api_retry_last_purge', time());
     }
 
 
@@ -123,18 +128,34 @@ class Plugin
         }
         $wpdb->query( "DROP TABLE IF EXISTS ".API_RETRY_TABLE_NAME."");
         delete_option("api_retry_db_version");
+        delete_option("api_retry_last_purge");
     }
 
 
     /**
-     *
+     * @param null $provider
+     * @return $this
      */
-    public function cron()
+    public function cron($provider = null)
     {
-        $data = Retry::pull();
+        $data = Retry::pull(API_RETRY_STATUS_QUEUE, $provider);
         foreach($data as $d)
         {
             do_action('api_retry_do', $d, $this);
         }
+
+        return $this;
+    }
+
+
+    /**
+     * @param null $provider
+     * @return $this
+     */
+    public function purge($provider = null)
+    {
+        Retry::purge($provider);
+
+        return $this;
     }
 }

@@ -19,9 +19,7 @@ module.exports = function (grunt) {
                         'templates/**',
                         '<%= name %>.php',
                         'README.md',
-                        'webhook.php',
-                        'resync.php',
-                        'sync.php'
+                        'cron.php',
                     ], dest: '<%= name %>/'
                 }]
             }
