@@ -94,9 +94,9 @@ class Plugin
           message TEXT COLLATE {$collation} NOT NULL,
           timestamp datetime NOT NULL,
           created datetime NOT NULL,
-          PRIMARY KEY  (id)
-          KEY provider (provider)
-          KEY hash  (hash),
+          PRIMARY KEY  (id),
+          KEY provider (provider),
+          KEY hash  (hash)
         ) ENGINE=MyISAM {$charset_collate};
         ";
 
