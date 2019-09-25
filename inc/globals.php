@@ -20,7 +20,7 @@ if(!defined('API_RETRY_PURGE_INTERVAL'))
 }
 if(!defined('API_RETRY_REPORT'))
 {
-    define('API_RETRY_REPORT', true);
+    define('API_RETRY_REPORT', false);
 }
 if(!defined('API_RETRY_PURGE_REPORT'))
 {

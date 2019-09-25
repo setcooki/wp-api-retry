@@ -50,8 +50,6 @@ class Plugin
         {
             $this->activate();
         }
-        add_action('api_retry_failure', ['\Setcooki\Wp\Api\Retry\Retry', 'failure'], 10, 6);
-        add_action('api_retry_success', ['\Setcooki\Wp\Api\Retry\Retry', 'success'], 10, 6);
     }
 
 

@@ -40,6 +40,8 @@ if(!function_exists('api_retry'))
             register_activation_hook(__FILE__, array($plugin, 'activate'));
             register_deactivation_hook(__FILE__, array($plugin, 'deactivate'));
             register_uninstall_hook(__FILE__, array(get_class($plugin), 'uninstall'));
+            add_action('api_retry_failure', ['\Setcooki\Wp\Api\Retry\Retry', 'failure'], 10, 6);
+            add_action('api_retry_success', ['\Setcooki\Wp\Api\Retry\Retry', 'success'], 10, 6);
             add_action('init', function() use ($plugin)
             {
                 $plugin->init();
