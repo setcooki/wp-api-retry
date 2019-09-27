@@ -53,7 +53,6 @@ require_once dirname(__FILE__) . '/lib/vendor/autoload.php';
 require_once dirname(__FILE__) . '/inc/globals.php';
 require_once dirname(__FILE__) . '/inc/functions.php';
 
-
 $args = [];
 if($argv)
 {

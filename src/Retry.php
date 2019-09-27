@@ -37,7 +37,7 @@ abstract class Retry
 
         if((int)$status === API_RETRY_STATUS_SUCCESS)
         {
-            return (int)$wpdb->query($wpdb->prepare("UPDATE `".API_RETRY_TABLE_NAME."` SET `timestamp` = %d, `timestamp` = %s WHERE `provider` = %s AND `hash` = %s LIMIT 1", [API_RETRY_STATUS_SUCCESS, $timestamp, $provider, $hash]));
+            return (int)$wpdb->query($wpdb->prepare("UPDATE `".API_RETRY_TABLE_NAME."` SET `status` = %d, `timestamp` = %s WHERE `provider` = %s AND `hash` = %s LIMIT 1", [API_RETRY_STATUS_SUCCESS, $timestamp, $provider, $hash]));
         }else if((int)$status === API_RETRY_STATUS_FAILURE){
             $result = $wpdb->get_row($wpdb->prepare("SELECT * FROM `".API_RETRY_TABLE_NAME."` WHERE `provider` = %s AND `hash` = %s AND `status` = %d LIMIT 1", [$provider, $hash, API_RETRY_STATUS_QUEUE]));
             if(is_object($result))
