@@ -18,7 +18,7 @@ define('API_RETRY_DIR', dirname(__FILE__));
 define('API_RETRY_NAME', basename(__FILE__, '.php'));
 define('API_RETRY_FILE', __FILE__);
 define('API_RETRY_URL', plugin_dir_url(API_RETRY_FILE));
-define('API_RETRY_DB_VERSION', '0.0.1');
+define('API_RETRY_DB_VERSION', '0.0.3');
 
 if(!function_exists('api_retry'))
 {

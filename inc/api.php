@@ -2,35 +2,35 @@
 
 use Setcooki\Wp\Api\Retry\Retry;
 
-if(function_exists('api_retry_push'))
-{
+if (function_exists('api_retry_push')) {
     /**
      * @param $status
      * @param $provider
      * @param $method
-     * @param $url
+     * @param $service
+     * @param $endpoint
      * @param $request
      * @param null $callback
      * @return int
-     * @throws Exception
+     * @throws \Setcooki\Wp\Api\Retry\Exception
      */
-    function api_retry_push($status, $provider, $method, $url, $request, $callback = null)
+    function api_retry_push($status, $provider, $method, $service, $endpoint, $request, $callback = null)
     {
-        return Retry::push($status, $provider, $method, $url, $request);
+        return Retry::push($status, $provider, $method, $service, $endpoint, $request);
     }
 }
 
 
-if(function_exists('api_retry_pull'))
-{
+if (function_exists('api_retry_pull')) {
     /**
      * @param int $status
      * @param null $provider
      * @param null $method
-     * @return mixed
+     * @param null $service
+     * @return array
      */
-    function api_retry_pull($status = 0, $provider = null, $method = null)
+    function api_retry_pull($status = 0, $provider = null, $method = null, $service = null)
     {
-        return Retry::pull($status, $provider, $method);
+        return Retry::pull($status, $provider, $method, $service);
     }
 }

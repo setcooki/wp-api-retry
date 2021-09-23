@@ -22,8 +22,7 @@ trait Singleton
      */
     final public static function getInstance(...$args)
     {
-        if(static::$_instance === null)
-        {
+        if (static::$_instance === null) {
             static::$_instance = new static($args);
         }
         return static::$_instance;
@@ -57,17 +56,23 @@ trait Singleton
      *
      * @param mixed ...$args
      */
-    protected function init(...$args) {}
+    protected function init(...$args)
+    {
+    }
 
 
     /**
      * deny serialization
      */
-    final public function __wakeup() {}
+    final public function __wakeup()
+    {
+    }
 
 
     /**
      * deny cloning
      */
-    final public function __clone() {}
+    final public function __clone()
+    {
+    }
 }

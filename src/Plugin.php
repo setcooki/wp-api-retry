@@ -25,9 +25,8 @@ class Plugin
      */
     public function __construct($options = null)
     {
-        if(is_array($options))
-        {
-           static::$options = array_merge(static::$options, $options);
+        if (is_array($options)) {
+            static::$options = array_merge(static::$options, $options);
         }
         $this->setup();
     }
@@ -46,9 +45,12 @@ class Plugin
      */
     public function init()
     {
-        if(API_RETRY_DB_VERSION !== get_option('api_retry_db_version', ''))
-        {
+        if (API_RETRY_DB_VERSION !== get_option('api_retry_db_version', '')) {
             $this->activate();
+        }
+
+        if (is_admin()) {
+            (new Settings($this))->init();
         }
     }
 
@@ -64,32 +66,31 @@ class Plugin
 
         $collation = 'utf8_unicode_ci';
         $charset_collate = '';
-        if(!empty($wpdb->charset))
-        {
+        if (!empty($wpdb->charset)) {
             $charset_collate .= "DEFAULT CHARACTER SET $wpdb->charset";
         }
-        if(!empty($wpdb->collate))
-        {
-            if(stripos($wpdb->charset, 'utf8mb4') !== false)
-            {
+        if (!empty($wpdb->collate)) {
+            if (stripos($wpdb->charset, 'utf8mb4') !== false) {
                 $charset_collate .= " COLLATE utf8mb4_unicode_ci";
                 $collation = 'utf8mb4_unicode_ci';
-            }else{
+            } else {
                 $charset_collate .= " COLLATE utf8_unicode_ci";
             }
         }
 
         $sql = "
-        CREATE TABLE ".API_RETRY_TABLE_NAME." (
+        CREATE TABLE " . API_RETRY_TABLE_NAME . " (
           id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
           provider VARCHAR(50) COLLATE {$collation} NOT NULL,
           method VARCHAR(25) COLLATE {$collation} NOT NULL,
-          url TEXT COLLATE {$collation} NOT NULL,
+          service TEXT COLLATE {$collation} NOT NULL,
+          endpoint TEXT COLLATE {$collation} NOT NULL,
           request TEXT COLLATE {$collation} NOT NULL,
           hash CHAR(32) COLLATE {$collation} NOT NULL,
           status TINYINT(1) NOT NULL DEFAULT '0',
           tries TINYINT(3) UNSIGNED NOT NULL DEFAULT '0',
           message TEXT COLLATE {$collation} NOT NULL,
+          decode TINYINT(1) NOT NULL DEFAULT '0',
           timestamp datetime NOT NULL,
           created datetime NOT NULL,
           PRIMARY KEY  (id),
@@ -122,11 +123,10 @@ class Plugin
     {
         global $wpdb;
 
-        if(!defined('WP_UNINSTALL_PLUGIN'))
-        {
+        if (!defined('WP_UNINSTALL_PLUGIN')) {
             exit();
         }
-        $wpdb->query( "DROP TABLE IF EXISTS ".API_RETRY_TABLE_NAME."");
+        $wpdb->query("DROP TABLE IF EXISTS " . API_RETRY_TABLE_NAME . "");
         delete_option("api_retry_db_version");
         delete_option("api_retry_last_purge");
     }
@@ -138,10 +138,19 @@ class Plugin
      */
     public function cron($provider = null)
     {
+        $options = json_decode(get_option('wpar_options', new \stdClass()));
+
+        if (!empty($options) && isset($options->enabled) && (int)$options->enabled === 0) {
+            return $this;
+        }
+
         $data = Retry::pull(API_RETRY_STATUS_QUEUE, $provider);
-        foreach($data as $d)
-        {
-            do_action('api_retry_do', $d, $this);
+        foreach ($data as $d) {
+            try {
+                do_action('api_retry_do', $d, $this);
+            } catch (\Exception $e) {
+                Retry::failure($d->provider, $d->method, $d->service, $d->endpoint, $d->request, $e->getMessage());
+            }
         }
 
         return $this;
@@ -154,6 +163,12 @@ class Plugin
      */
     public function purge($provider = null)
     {
+        $options = json_decode(get_option('wpar_options', new \stdClass()));
+
+        if (!empty($options) && isset($options->enabled) && (int)$options->enabled === 0) {
+            return $this;
+        }
+
         Retry::purge($provider);
 
         return $this;
