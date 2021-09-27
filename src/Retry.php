@@ -9,6 +9,60 @@ namespace Setcooki\Wp\Api\Retry;
 abstract class Retry
 {
     /**
+     * @param $provider
+     * @param $method
+     * @param $service
+     * @param $endpoint
+     * @param $request
+     * @param null $failure
+     * @param null $callback
+     * @return false|mixed
+     */
+    public static function failure($provider, $method, $service, $endpoint, $request, $failure = null, $callback = null)
+    {
+        $args = apply_filters('_api_retry_failure', (object)[
+            'provider' => $provider,
+            'method' => $method,
+            'service' => $service,
+            'endpoint' => $endpoint,
+            'request' => $request,
+            'failure' => $failure,
+            'callback' => $callback,
+            'custom' => null
+        ]);
+
+        return call_user_func_array([__CLASS__, 'push'], array_merge([API_RETRY_STATUS_FAILURE], (array)$args));
+    }
+
+
+    /**
+     * @param $provider
+     * @param $method
+     * @param $service
+     * @param $endpoint
+     * @param $request
+     * @param null $success
+     * @param null $callback
+     * @return false|mixed
+     */
+    public static function success($provider, $method, $service, $endpoint, $request, $success = null, $callback = null)
+    {
+        $args = apply_filters('_api_retry_success', (object)[
+            'provider' => $provider,
+            'method' => $method,
+            'service' => $service,
+            'endpoint' => $endpoint,
+            'request' => $request,
+            'success' => $success,
+            'callback' => $callback,
+            'custom' => null
+        ]);
+
+        return call_user_func_array([__CLASS__, 'push'], array_merge([API_RETRY_STATUS_SUCCESS], (array)$args));
+    }
+
+
+    /**
      * @param $status
      * @param $provider
      * @param $method
@@ -17,10 +71,11 @@ abstract class Retry
      * @param $request
      * @param null $message
      * @param null $callback
+     * @param null $custom
      * @return int
      * @throws Exception
      */
-    public static function push($status, $provider, $method, $service, $endpoint, $request, $message = null, $callback = null)
+    public static function push($status, $provider, $method, $service, $endpoint, $request, $message = null, $callback = null, $custom = null)
     {
         global $wpdb;
 
@@ -39,6 +94,9 @@ abstract class Retry
         }
         if (is_array($message) || is_object($message)) {
             $message = json_encode($message);
+        }
+        if (is_array($custom) || is_object($custom)) {
+            $custom = json_encode($custom);
         }
 
         $options = json_decode(get_option('wpar_options', new \stdClass()));
@@ -60,7 +118,11 @@ abstract class Retry
         }
 
         if ((int)$status === API_RETRY_STATUS_SUCCESS) {
-            return (int)$wpdb->query($wpdb->prepare("UPDATE `" . API_RETRY_TABLE_NAME . "` SET `status` = %d, `message` = %s, `timestamp` = %s WHERE `provider` = %s AND `hash` = %s LIMIT 1", [API_RETRY_STATUS_SUCCESS, $message, $timestamp, $provider, $hash]));
+            $result =  (int)$wpdb->query($wpdb->prepare("UPDATE `" . API_RETRY_TABLE_NAME . "` SET `status` = %d, `tries` = `tries` + %d, `success` = %s, `timestamp` = %s WHERE `provider` = %s AND `hash` = %s", [API_RETRY_STATUS_SUCCESS, 1, $message, $timestamp, $provider, $hash]));
+            if(!is_null($custom)) {
+                $wpdb->query($wpdb->prepare("UPDATE `" . API_RETRY_TABLE_NAME . "` SET `custom` = %s WHERE `provider` = %s AND `hash` = %s", [$custom, $provider, $hash]));
+            }
+            return $result;
         } else if ((int)$status === API_RETRY_STATUS_FAILURE) {
             //TODO: we limit the select query to 1 record. What if we have multiple? should they not be deleted?
             $result = $wpdb->get_row($wpdb->prepare("SELECT * FROM `" . API_RETRY_TABLE_NAME . "` WHERE `provider` = %s AND `hash` = %s AND `status` = %d LIMIT 1", [$provider, $hash, API_RETRY_STATUS_QUEUE]));
@@ -72,12 +134,12 @@ abstract class Retry
                             api_retry_report($recipients, $provider, $method, $endpoint, $request);
                         }
                     }
-                    return (int)$wpdb->query($wpdb->prepare("UPDATE `" . API_RETRY_TABLE_NAME . "` SET `status` = %d, `message` = %s, `timestamp` = %s  WHERE `provider` = %s AND `hash` = %s AND `status` = %d LIMIT 1", [API_RETRY_STATUS_FAILURE, $message, $timestamp, $provider, $hash, API_RETRY_STATUS_QUEUE]));
+                    return (int)$wpdb->query($wpdb->prepare("UPDATE `" . API_RETRY_TABLE_NAME . "` SET `status` = %d, `failure` = %s, `timestamp` = %s WHERE `provider` = %s AND `hash` = %s AND `status` = %d LIMIT 1", [API_RETRY_STATUS_FAILURE, $message, $timestamp, $provider, $hash, API_RETRY_STATUS_QUEUE]));
                 } else {
-                    return (int)$wpdb->query($wpdb->prepare("UPDATE `" . API_RETRY_TABLE_NAME . "` SET `tries` = `tries` + %d, `message` = %s, `timestamp` = %s WHERE `provider` = %s AND `hash` = %s AND `status` = %d LIMIT 1", [1, $message, $timestamp, $provider, $hash, API_RETRY_STATUS_QUEUE]));
+                    return (int)$wpdb->query($wpdb->prepare("UPDATE `" . API_RETRY_TABLE_NAME . "` SET `tries` = `tries` + %d, `failure` = %s, `timestamp` = %s WHERE `provider` = %s AND `hash` = %s AND `status` = %d LIMIT 1", [1, $message, $timestamp, $provider, $hash, API_RETRY_STATUS_QUEUE]));
                 }
             } else {
-                return (int)$wpdb->query($wpdb->prepare("INSERT INTO `" . API_RETRY_TABLE_NAME . "` (`provider`, `method`, `service`, `endpoint`, `request`, `hash`, `message`, `decode`, `timestamp`, `created`) VALUES (%s, %s, %s, %s, %s, %s, %s, %d, %s, %s)", [
+                return (int)$wpdb->query($wpdb->prepare("INSERT INTO `" . API_RETRY_TABLE_NAME . "` (`provider`, `method`, `service`, `endpoint`, `request`, `hash`, `failure`, `decode`, `custom`, `timestamp`, `created`) VALUES (%s, %s, %s, %s, %s, %s, %s, %d, %s, %s, %s)", [
                     $provider,
                     $method,
                     $service,
@@ -86,6 +148,7 @@ abstract class Retry
                     $hash,
                     $message,
                     (int)$decode,
+                    $custom,
                     $timestamp,
                     $timestamp
                 ]));
@@ -93,38 +156,6 @@ abstract class Retry
         } else {
             throw new Exception(sprintf(__('Status: %d not implemented'), (int)$status));
         }
-    }
-
-
-    /**
-     * @param $provider
-     * @param $method
-     * @param $service
-     * @param $endpoint
-     * @param $request
-     * @param null $failure
-     * @param null $callback
-     * @return false|mixed
-     */
-    public static function failure($provider, $method, $service, $endpoint, $request, $failure = null, $callback = null)
-    {
-        return call_user_func_array([__CLASS__, 'push'], array_merge([API_RETRY_STATUS_FAILURE], func_get_args()));
-    }
-
-
-    /**
-     * @param $provider
-     * @param $method
-     * @param $service
-     * @param $endpoint
-     * @param $request
-     * @param null $success
-     * @param null $callback
-     * @return false|mixed
-     */
-    public static function success($provider, $method, $service, $endpoint, $request, $success = null, $callback = null)
-    {
-        return call_user_func_array([__CLASS__, 'push'], array_merge([API_RETRY_STATUS_SUCCESS], func_get_args()));
     }
 
 
@@ -211,8 +242,8 @@ abstract class Retry
                                 $res->method,
                                 $res->service,
                                 $res->endpoint,
-                                (!empty($res->request)) ? trim($res->request) : '',
-                                (!empty($res->message)) ? trim($res->message) : '',
+                                ((!empty($res->request)) ? trim($res->request) : ''),
+                                (((int)$res->status === API_RETRY_STATUS_FAILURE) ? $res->failure : $res->success),
                                 $res->tries
                             ];
                         if ((int)$res->status === API_RETRY_STATUS_FAILURE) {

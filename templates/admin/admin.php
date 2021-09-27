@@ -3,11 +3,7 @@
 
     })(jQuery.noConflict());
 </script>
-<style type="text/css">
-    #wpar .success { font-weight: bold; color: rgb(34, 113, 177) }
-    #wpar .failure { color: red }
-    #wpar pre { font-size: smaller; margin: 0 }
-</style>
+<style type="text/css"></style>
 <div class="wrap" id="wpar">
     <h2 class="nav-tab-wrapper">
         <a href="<?php echo add_query_arg(['page' => 'api-retry', 'tab' => 'settings'], '/wp-admin/options-general.php'); ?>"

@@ -56,6 +56,10 @@ class Settings
      */
     public function adminMenu()
     {
+        add_thickbox();
+
+        $filter = new \stdClass();
+
         $options = json_decode(get_option('wpar_options', new \stdClass()));
         $tries = API_RETRY_MAX_TRIES;
         if (!empty($options) && isset($options->max_tries)) {
@@ -87,7 +91,15 @@ class Settings
         if (empty($options) || (!empty($options) && !isset($options->max_tries))) {
             $options->max_tries = API_RETRY_MAX_TRIES;
         }
-        $items = $this->getItems();
+
+        $pagenum = isset($_GET['pagenum']) ? absint($_GET['pagenum']) : 1;
+        $limit = 10;
+        $offset = ($pagenum === 1) ? 0 : ($pagenum * $limit) - $limit;
+        $items = $this->getItems($offset, $limit);
+        $total = sizeof($items);
+        $num_of_pages = ceil($total / $limit);
+        $filter->providers = $this->getProviders();
+        $filter->methods = $this->getMethods();
 
         ob_start();
         require_once API_RETRY_DIR . '/templates/admin/admin.php';
@@ -113,17 +125,42 @@ class Settings
 
 
     /**
+     * @param int $limit
      * @return array
      */
-    protected function getItems()
+    protected function getItems($offset = 0, $limit = 10)
     {
         global $wpdb;
 
-        $offset = 0;
         $orderby = $_REQUEST['orderby'] ?: 'timestamp';
         $order = $_REQUEST['order'] ?: 'desc';
+        $s = $_REQUEST['s'] ?: null;
+        $provider = $_REQUEST['provider'] ?: null;
+        $method = $_REQUEST['method'] ?: null;
+        $status = (isset($_REQUEST['status']) && $_REQUEST['status'] !== "") ? (int)$_REQUEST['status'] : null;
 
-        return (array)$wpdb->get_results(sprintf("SELECT * FROM " . API_RETRY_TABLE_NAME . " ORDER BY %s %s, timestamp ASC LIMIT %d, 50", $orderby, $order, $offset));
+        $sql = [];
+        $where = [];
+        $sql[] = sprintf("SELECT * FROM `%s`", API_RETRY_TABLE_NAME);
+        if (!empty($s)) {
+            $where[] = sprintf("(`request` LIKE '%%%s%%' OR `failure` LIKE '%%%s%%' OR `success` LIKE '%%%s%%')", $s, $s, $s);
+        }
+        if (!empty($provider)) {
+            $where[] = sprintf("`provider` = '%s'", $provider);
+        }
+        if (!empty($method)) {
+            $where[] = sprintf("`method` = '%s'", $method);
+        }
+        if (!is_null($status)) {
+            $where[] = sprintf("`status` = %d", $status);
+        }
+        if (!empty($where)) {
+            $sql[] = sprintf("WHERE %s", implode(" AND ", $where));
+        }
+
+        $sql[] = sprintf("ORDER BY `%s` %s, `timestamp` ASC LIMIT %d, %d", $orderby, $order, (int)$offset, (int)$limit);
+
+        return (array)$wpdb->get_results(implode(" ", $sql));
     }
 
 
@@ -135,7 +172,7 @@ class Settings
     {
         global $wpdb;
 
-        return $wpdb->get_row(sprintf("SELECT * FROM " . API_RETRY_TABLE_NAME . " WHERE id = %d LIMIT 1", (int)$id));
+        return $wpdb->get_row(sprintf("SELECT * FROM `" . API_RETRY_TABLE_NAME . "` WHERE `id` = %d LIMIT 1", (int)$id));
     }
 
 
@@ -154,5 +191,27 @@ class Settings
             return true;
         }
         return false;
+    }
+
+
+    /**
+     * @return array
+     */
+    protected function getProviders()
+    {
+        global $wpdb;
+
+        return (array)$wpdb->get_col("SELECT DISTINCT `provider` FROM `" . API_RETRY_TABLE_NAME . "`");
+    }
+
+
+    /**
+     * @return array
+     */
+    protected function getMethods()
+    {
+        global $wpdb;
+
+        return (array)$wpdb->get_col("SELECT DISTINCT `method` FROM `" . API_RETRY_TABLE_NAME . "`");
     }
 }
