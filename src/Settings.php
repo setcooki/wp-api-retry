@@ -36,6 +36,7 @@ class Settings
     public function init()
     {
         if (is_admin()) {
+            add_action('wp_ajax_api_retry_request', [$this, 'ajaxApiRetryRequest']);
             add_filter('plugin_action_links_wp-api-retry/wp-api-retry.php', [$this, 'adminLink']);
             add_action('admin_menu', function () {
                 add_options_page
@@ -93,10 +94,10 @@ class Settings
         }
 
         $pagenum = isset($_GET['pagenum']) ? absint($_GET['pagenum']) : 1;
-        $limit = 10;
+        $limit = 25;
         $offset = ($pagenum === 1) ? 0 : ($pagenum * $limit) - $limit;
+        $total = (int)$this->getItems($offset, $limit, true);
         $items = $this->getItems($offset, $limit);
-        $total = sizeof($items);
         $num_of_pages = ceil($total / $limit);
         $filter->providers = $this->getProviders();
         $filter->methods = $this->getMethods();
@@ -125,13 +126,17 @@ class Settings
 
 
     /**
+     * @param int $offset
      * @param int $limit
-     * @return array
+     * @param false $count
+     * @return array|int
      */
-    protected function getItems($offset = 0, $limit = 10)
+    protected function getItems($offset = 0, $limit = 10, $count = false)
     {
         global $wpdb;
 
+        $sql = [];
+        $where = [];
         $orderby = $_REQUEST['orderby'] ?: 'timestamp';
         $order = $_REQUEST['order'] ?: 'desc';
         $s = $_REQUEST['s'] ?: null;
@@ -139,9 +144,12 @@ class Settings
         $method = $_REQUEST['method'] ?: null;
         $status = (isset($_REQUEST['status']) && $_REQUEST['status'] !== "") ? (int)$_REQUEST['status'] : null;
 
-        $sql = [];
-        $where = [];
-        $sql[] = sprintf("SELECT * FROM `%s`", API_RETRY_TABLE_NAME);
+        if ((bool)$count) {
+            $sql[] = sprintf("SELECT COUNT(*) FROM `%s`", API_RETRY_TABLE_NAME);
+        } else {
+            $sql[] = sprintf("SELECT * FROM `%s`", API_RETRY_TABLE_NAME);
+        }
+
         if (!empty($s)) {
             $where[] = sprintf("(`request` LIKE '%%%s%%' OR `failure` LIKE '%%%s%%' OR `success` LIKE '%%%s%%')", $s, $s, $s);
         }
@@ -158,9 +166,12 @@ class Settings
             $sql[] = sprintf("WHERE %s", implode(" AND ", $where));
         }
 
-        $sql[] = sprintf("ORDER BY `%s` %s, `timestamp` ASC LIMIT %d, %d", $orderby, $order, (int)$offset, (int)$limit);
-
-        return (array)$wpdb->get_results(implode(" ", $sql));
+        if ((bool)$count) {
+            return $wpdb->get_var(implode(" ", $sql));
+        } else {
+            $sql[] = sprintf("ORDER BY `%s` %s, `timestamp` ASC LIMIT %d, %d", $orderby, $order, (int)$offset, (int)$limit);
+            return (array)$wpdb->get_results(implode(" ", $sql));
+        }
     }
 
 
@@ -213,5 +224,81 @@ class Settings
         global $wpdb;
 
         return (array)$wpdb->get_col("SELECT DISTINCT `method` FROM `" . API_RETRY_TABLE_NAME . "`");
+    }
+
+
+    /**
+     *
+     */
+    public function ajaxApiRetryRequest()
+    {
+        global $wpdb;
+
+        $html = '';
+
+        $id = (isset($_REQUEST['id']) && !empty($_REQUEST['id'])) ? $_REQUEST['id'] : null;
+
+        if (strtolower($_SERVER['REQUEST_METHOD']) === 'post' && !empty($id)) {
+            $data = trim((string)file_get_contents('php://input'));
+            if (!empty($data)) {
+                if (is_string($data) && is_array(json_decode($data, true)) && (json_last_error() === JSON_ERROR_NONE)) {
+                    $data = json_encode(json_decode($data));
+                }
+                $wpdb->query($wpdb->prepare("UPDATE `" . API_RETRY_TABLE_NAME . "` SET `request` = %s WHERE `id` = %d LIMIT 1", [(string)$data, $id]));
+            }
+            header('Content-Type: text/plain');
+            echo 1;
+            exit;
+        }
+
+        if (!empty($id)) {
+            $item = $this->getItem($id);
+            if (!empty($item)) {
+                ob_start(); ?>
+                <script type="text/javascript">
+                    (function ($) {
+                        $(document).ready(function () {
+                            var r = $('#request<?php echo $id; ?>');
+                            if (r.length) {
+                                try {
+                                    var json = JSON.parse(r.find('pre').html());
+                                    r.find('pre').html(JSON.stringify(json, null, 2));
+                                } catch (e) {
+                                }
+                                r.find('a').on('click', function (e) {
+                                    e.preventDefault();
+                                    $.ajax({
+                                        beforeSend: function () {
+                                            $(e.currentTarget).attr('disabled', 'disabled');
+                                        },
+                                        type: 'POST',
+                                        url: '<?php echo admin_url('admin-ajax.php'); ?>?action=api_retry_request&id=<?php echo $id; ?>',
+                                        data: r.find('pre').text(),
+                                        cache: false,
+                                        complete: function () {
+                                            $(e.currentTarget).removeAttr('disabled');
+                                        }
+                                    });
+                                    return false;
+                                })
+                            }
+                        });
+                    })(jQuery.noConflict());
+                </script>
+                <div id="request<?php echo $id; ?>" style="position: relative; width: 100%; height: inherit">
+                    <div style="width: 100%; height: calc(100% - 50px); overflow-y: auto">
+                        <pre style="padding: 0 10px; white-space: pre-wrap; word-wrap: break-word" contenteditable="true"><?php echo $item->request; ?></pre>
+                    </div>
+                    <div style="height: 50px; width: 100%; background: #fff;">
+                        <a href="javascript:void(0);" title="Save request" class="button" style="margin: 10px">Save</a>
+                    </div>
+                </div>
+                <?php $html = ob_get_clean();
+            }
+        }
+
+        header('Content-Type: text/html');
+        echo $html;
+        exit;
     }
 }

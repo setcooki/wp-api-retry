@@ -21,7 +21,11 @@
                     } else {
                         j = json(col.find('samp').html());
                         if (j) {
-                            col.html('<a href="#TB_inline?&width=600&height=500&inlineId=reveal' + i + '" class="thickbox" title="Inspect">Inspect</a><div id="reveal' + i + '"><pre>' + JSON.stringify(j, null, 2) + '</pre></p>');
+                            if (col.hasClass('editable')) {
+                                col.html('<a href="<?php echo admin_url('admin-ajax.php'); ?>?action=api_retry_request&id=' + col.closest('tr').attr('id') + '" class="thickbox" title="Inspect">Inspect</a><div id="reveal' + i + '"><pre>' + JSON.stringify(j, null, 2) + '</pre></p>');
+                            } else {
+                                col.html('<a href="#TB_inline?&width=600&height=500&inlineId=reveal' + i + '" class="thickbox" title="Inspect">Inspect</a><div id="reveal' + i + '"><pre>' + JSON.stringify(j, null, 2) + '</pre></p>');
+                            }
                         }
                         col.addClass('revealed');
                     }
@@ -104,6 +108,23 @@
         text-overflow: ellipsis;
         word-break: break-word;
     }
+
+    #TB_window #TB_ajaxContent {
+        overflow: hidden !important;
+        padding: 0 !important;
+        width: 100% !important;
+    }
+
+    #TB_window #TB_ajaxContent > pre {
+        overflow-y: auto;
+        padding: 0 10px;
+        height: calc(100% - 20px);
+    }
+
+    *[contenteditable="true"] {
+        outline: 0 solid transparent;
+        display: inline-block;
+    }
 </style>
 <h2><?php _e('Monitor', API_RETRY_DOMAIN); ?></h2>
 <div>
@@ -133,8 +154,8 @@
                     <select name="status" id="filter-by-status">
                         <option selected="selected" value=""><?php _e('All Status', API_RETRY_DOMAIN); ?></option>
                         <option value="-1" <?php echo((isset($_GET['status']) && (int)$_GET['status'] === -1) ? 'selected="selected"' : ''); ?>><?php _e('-1 (Failed)', API_RETRY_DOMAIN); ?></option>
-                        <option value="0" <?php echo((isset($_GET['status']) && (int)$_GET['status'] === 0) ? 'selected="selected"' : ''); ?>><?php _e('0 (Queued)', API_RETRY_DOMAIN); ?></option>
-                        <option value="1" <?php echo((isset($_GET['status']) && (int)$_GET['status'] === 1) ? 'selected="selected"' : ''); ?>><?php _e('1 (Success)', API_RETRY_DOMAIN); ?></option>
+                        <option value="0" <?php echo((isset($_GET['status']) && $_GET['status'] == "0") ? 'selected="selected"' : ''); ?>><?php _e('0 (Queued)', API_RETRY_DOMAIN); ?></option>
+                        <option value="1" <?php echo((isset($_GET['status']) && (int)$_GET['status'] == 1) ? 'selected="selected"' : ''); ?>><?php _e('1 (Success)', API_RETRY_DOMAIN); ?></option>
                     </select>
                     <input type="submit" name="filter_action" id="post-query-submit" class="button" value="<?php _e('Filter'); ?>">
                 <?php } ?>
@@ -223,7 +244,7 @@
                 <th scope="col" id="status"
                     class="manage-column column-status <?php echo(($this->menu->orderby === 'status') ? 'sorted' : 'sortable'); ?> <?php echo $this->menu->order; ?>"
                     style="">
-                    <span style="width:80px">
+                    <span style="width:100px">
                     <a href="<?php echo add_query_arg(['orderby' => 'status', 'order' => ($this->menu->order === 'desc') ? 'asc' : 'desc']); ?>">
                         <span><?php _e('Status', API_RETRY_DOMAIN); ?></span>
                         <span class="sorting-indicator"></span>
@@ -296,7 +317,7 @@
                     <td class="column-method" data-colname="<?php _e('Method', API_RETRY_DOMAIN); ?>"><?php echo $item->method; ?></td>
                     <td class="column-service" data-colname="<?php _e('Service', API_RETRY_DOMAIN); ?>"><?php echo $item->service; ?></td>
                     <td class="column-endpoint revealable" data-colname="<?php _e('Endpoint', API_RETRY_DOMAIN); ?>"><samp><?php echo $item->endpoint; ?></samp></td>
-                    <td class="column-request revealable" data-colname="<?php _e('Request', API_RETRY_DOMAIN); ?>"><samp><?php echo $item->request; ?></samp></td>
+                    <td class="column-request revealable editable" data-colname="<?php _e('Request', API_RETRY_DOMAIN); ?>"><samp><?php echo $item->request; ?></samp></td>
                     <td class="column-status" data-colname="<?php _e('Status', API_RETRY_DOMAIN); ?>">
                         <div class="reveal">
                             <?php switch ($item->status) {
